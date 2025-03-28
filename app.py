@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 # MySQL Configuration
 DB_CONFIG = {
-    "host": "host",
+    "host": "localhost",
     "user": "user",
     "password": "password",
     "database": "algo"
@@ -45,7 +45,8 @@ def create_table():
     
     table_query = """
     CREATE TABLE IF NOT EXISTS data (
-        datetime DATE PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        datetime DATE NOT NULL,
         open DECIMAL(10,2) NOT NULL,
         high DECIMAL(10,2) NOT NULL,
         low DECIMAL(10,2) NOT NULL,
@@ -63,14 +64,13 @@ def create_table():
 # Fetch OHLC data from MySQL
 def get_data_from_db(date):
     connection = mysql.connector.connect(**DB_CONFIG)
+    date = datetime.strptime(date, "%Y-%m-%d").date() 
     cursor = connection.cursor(dictionary=True)
-
     query = "SELECT * FROM data WHERE datetime = %s"
     cursor.execute(query, (date,))
     result = cursor.fetchone()
-
-    cursor.close()
-    connection.close()
+    # cursor.close()
+    # connection.close()
     return result
 
 # Fetch OHLC data from yFinance
@@ -112,20 +112,17 @@ def insert_data_into_db(data):
     query = """
         INSERT INTO data (datetime, open, high, low, close, sma, rsi, macd)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE open=VALUES(open), high=VALUES(high), low=VALUES(low), close=VALUES(close), 
-                                sma=VALUES(sma), rsi=VALUES(rsi), macd=VALUES(macd)
     """
 
     for _, row in data.iterrows():
         dt = pd.to_datetime(row["Date"].iloc[0]).to_pydatetime()
-        open_price = float(row["Open"].iloc[0])  # ✅ Fix: Correctly access row values
+        open_price = float(row["Open"].iloc[0])
         high_price = float(row["High"].iloc[0])
         low_price = float(row["Low"].iloc[0])
         close_price = float(row["Close"].iloc[0])
         sma = float(row["SMA"].iloc[0]) if pd.notna(row["SMA"].iloc[0]) else None
         rsi = float(row["RSI"].iloc[0]) if pd.notna(row["RSI"].iloc[0]) else None
         macd = float(row["MACD"].iloc[0]) if pd.notna(row["MACD"].iloc[0]) else None
-
         cursor.execute(query, (dt, open_price, high_price, low_price, close_price, sma, rsi, macd))
 
     cursor.close()
@@ -136,22 +133,17 @@ def insert_data_into_db(data):
 @app.route('/get_ohlc_indicators', methods=['GET'])
 def fetch_ohlc_indicators():
     date = request.args.get('date')
-    print('step1')
-    print(date)
     if not date:
         return jsonify({"error": "Date parameter is required"}), 400
 
     # Check if data exists in MySQL first
-    print('step2')
     data = get_data_from_db(date)
-    print(data)
     if data:
         return jsonify(data)
 
     # If not found, fetch fresh data
     nifty_data = fetch_nifty_data()
-    print('step3')
-    print(nifty_data)
+
     if nifty_data.empty:
         return jsonify({"error": "No data fetched"}), 400
 
@@ -160,8 +152,6 @@ def fetch_ohlc_indicators():
 
     # Retrieve the newly inserted data
     data = get_data_from_db(date)
-    print('step4')
-    print(data)
     return jsonify(data)
 
 @app.route("/")
