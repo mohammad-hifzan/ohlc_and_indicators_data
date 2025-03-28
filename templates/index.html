@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIFTY Data Viewer</title>
+    <script>
+        function fetchData() {
+            let date = document.getElementById("dateInput").value;
+            if (!date) {
+                alert("Please select a date!");
+                return;
+            }
+            
+            fetch(`/get_ohlc_indicators?date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    debugger
+                    if (data.error) {
+                        document.getElementById("result").innerHTML = `<p style='color: red;'>${data.error}</p>`;
+                    } else {
+                        document.getElementById("result").innerHTML = `
+                            <h3>OHLC Data</h3>
+                            <p><strong>Date:</strong> ${data.datetime}</p>
+                            <p><strong>Open:</strong> ${data.open}</p>
+                            <p><strong>High:</strong> ${data.high}</p>
+                            <p><strong>Low:</strong> ${data.low}</p>
+                            <p><strong>Close:</strong> ${data.close}</p>
+                            
+                            <h3>Indicators</h3>
+                            <p><strong>Moving Average:</strong> ${data.moving_average}</p>
+                            <p><strong>RSI:</strong> ${data.rsi}</p>
+                            <p><strong>MACD:</strong> ${data.macd}</p>
+                        `;
+                    }
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+    </script>
+</head>
+<body>
+    <h2>NIFTY Data Viewer</h2>
+    <label for="dateInput">Select Date:</label>
+    <input type="date" id="dateInput">
+    <button onclick="fetchData()">Show Data</button>
+    <div id="result"></div>
+</body>
+</html>
